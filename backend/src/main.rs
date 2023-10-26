@@ -1,14 +1,19 @@
 extern crate postgres;
+
 use postgres::{Client, Error, NoTls};
 
 
-use std::{ fs::File, io::{prelude::*, BufReader}, net::{TcpListener, TcpStream}};
+use std::fs::File;
+use std::io::prelude::*;
+use std::net::{TcpListener, TcpStream};
 
-fn main() {
+
+
+fn main() -> Result<(), Error> {
     let mut client = Client::connect(
-        "postgresql://postgres:password@127.0.0.1:5432/testdb",
+        "postgresql://postgres:password@127.0.0.1:5432",
         NoTls,
-    ).unwrap();
+    )?;
 
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
 
@@ -17,6 +22,8 @@ fn main() {
 
         handle_connection(stream, &mut client);
     }
+
+    Ok(())
 }
 
 fn handle_connection(mut stream: TcpStream, client: & mut Client) {
@@ -25,6 +32,7 @@ fn handle_connection(mut stream: TcpStream, client: & mut Client) {
 
     let get = b"GET / HTTP/1.1\r\n";
     let sleep = b"GET /sleep HTTP/1.1\r\n";
+
     
     let (status_line, filename) = if buffer.starts_with(get) {
         ("HTTP/1.1 200 OK\r\n\r\n", "hello.html")
@@ -44,7 +52,7 @@ fn handle_connection(mut stream: TcpStream, client: & mut Client) {
     stream.write(response.as_bytes()).unwrap();
     stream.flush().unwrap();
 
-    if status_line == "GET / HTTP/1.1" {
+    if status_line == "HTTP/1.1 200 OK\r\n\r\n" {
         for row in client.query("SELECT id, name FROM users", &[]).unwrap() {
             let id: i32 = row.get(0);
             let name: String = row.get(1);
