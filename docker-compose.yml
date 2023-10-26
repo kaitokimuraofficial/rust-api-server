@@ -13,7 +13,7 @@ services:
 
   backend:
     build: ./backend
-    command: /bin/sh -c "cargo watch -x run"
+    command: /bin/sh -c "cargo run"
     ports:
       - 7878:7878
 

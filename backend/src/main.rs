@@ -2,8 +2,7 @@ extern crate postgres;
 use postgres::{Client, Error, NoTls};
 
 
-use std::{ fs, io::{prelude::*, BufReader}, net::{TcpListener, TcpStream}};
-
+use std::{ fs::File, io::{prelude::*, BufReader}, net::{TcpListener, TcpStream}};
 
 fn main() {
     let mut client = Client::connect(
@@ -21,15 +20,38 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream, client: & mut Client) {
-    let buf_reader = BufReader::new(&mut stream);
-    let request_line = buf_reader.lines().next().unwrap().unwrap();
+    let mut buffer = [0; 1024];
+    stream.read(&mut buffer).unwrap();
 
-    if request_line == "GET / HTTP/1.1" {
+    let get = b"GET / HTTP/1.1\r\n";
+    let sleep = b"GET /sleep HTTP/1.1\r\n";
+    
+    let (status_line, filename) = if buffer.starts_with(get) {
+        ("HTTP/1.1 200 OK\r\n\r\n", "hello.html")
+    } else if buffer.starts_with(sleep) {
+        ("HTTP/1.1 200 OK\r\n\r\n", "hello.html")
+    } else {
+        ("HTTP/1.1 404 NOT FOUND\r\n\r\n", "404.html")
+    };
+
+    let mut file = File::open(filename).unwrap();
+    let mut contents = String::new();
+
+    file.read_to_string(&mut contents).unwrap();
+
+    let response = format!("{}{}", status_line, contents);
+
+    stream.write(response.as_bytes()).unwrap();
+    stream.flush().unwrap();
+
+    if status_line == "GET / HTTP/1.1" {
         for row in client.query("SELECT id, name FROM users", &[]).unwrap() {
             let id: i32 = row.get(0);
             let name: String = row.get(1);
             println!("{} {}", id, name);
         }
+    }else {
+        println!("Invalid order");
     }
 
 }
